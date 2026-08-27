@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Divisor de Vídeo para WhatsApp (30s)</title>
   
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   
-  <!-- FFmpeg v0.12 Single-Threaded (compatível com navegadores móbile no GitHub Pages) -->
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
-  <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col items-center p-4">
 
@@ -20,7 +18,6 @@
       <p class="text-gray-500 text-sm mt-1">Divida seu vídeo em partes de 30 segundos para o Status.</p>
     </div>
 
-    <!-- Upload -->
     <div class="border-2 border-dashed border-emerald-400 rounded-xl p-8 text-center bg-emerald-50 hover:bg-emerald-100 transition cursor-pointer mb-6">
       <input type="file" id="videoInput" accept="video/*" class="hidden" />
       <label for="videoInput" class="cursor-pointer flex flex-col items-center">
@@ -29,18 +26,17 @@
       </label>
     </div>
 
-    <!-- Progresso -->
     <div id="statusContainer" class="hidden mb-6">
       <div class="flex justify-between text-sm text-gray-600 mb-2 font-medium">
         <span id="statusText">Iniciando...</span>
         <span id="statusPercent">0%</span>
       </div>
-      <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+      <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden mb-2">
         <div id="progressBar" class="bg-emerald-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
       </div>
+      <div id="logText" class="text-xs text-gray-400 italic text-center"></div>
     </div>
 
-    <!-- Resultados -->
     <div id="resultsContainer" class="hidden">
       <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Partes Geradas:</h2>
       <div id="partsList" class="space-y-4"></div>
@@ -58,6 +54,7 @@
     const statusText = document.getElementById('statusText');
     const statusPercent = document.getElementById('statusPercent');
     const progressBar = document.getElementById('progressBar');
+    const logText = document.getElementById('logText');
     const resultsContainer = document.getElementById('resultsContainer');
     const partsList = document.getElementById('partsList');
 
@@ -68,38 +65,53 @@
       partsList.innerHTML = '';
       resultsContainer.classList.add('hidden');
       statusContainer.classList.remove('hidden');
-      statusText.innerText = 'Carregando motor de vídeo...';
-      progressBar.style.width = '10%';
-      statusPercent.innerText = '10%';
+      progressBar.style.width = '5%';
+      statusPercent.innerText = '5%';
+      statusText.innerText = 'Iniciando sistema...';
+      logText.innerText = '';
 
       try {
         if (!ffmpeg) {
           ffmpeg = new FFmpeg();
-          
+
+          // Log de progresso do corte do vídeo
           ffmpeg.on('progress', ({ progress }) => {
             const pct = Math.min(100, Math.max(0, Math.round(progress * 100)));
             progressBar.style.width = pct + '%';
             statusPercent.innerText = pct + '%';
           });
 
-          // Carrega o núcleo single-thread
-          const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+          // Mostra mensagens internas para acompanhar o estado
+          ffmpeg.on('log', ({ message }) => {
+            console.log(message);
+            if (message.length < 50) {
+              logText.innerText = message;
+            }
+          });
+
+          statusText.innerText = 'A descarregar o motor de vídeo (~25MB)... Aguarde!';
+          logText.innerText = 'A carregar ficheiros (apenas na 1ª utilização)...';
+          progressBar.style.width = '15%';
+
+          // Utiliza a CDN jsDelivr para downloads mais rápidos e estáveis
+          const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
           await ffmpeg.load({
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
           });
         }
 
-        statusText.innerText = 'Lendo o arquivo...';
-        progressBar.style.width = '30%';
-        statusPercent.innerText = '30%';
+        statusText.innerText = 'A ler o ficheiro de vídeo...';
+        progressBar.style.width = '35%';
+        statusPercent.innerText = '35%';
 
         const ext = file.name.split('.').pop().toLowerCase() || 'mp4';
         const inputName = `input.${ext}`;
 
         await ffmpeg.writeFile(inputName, await fetchFile(file));
 
-        statusText.innerText = 'Fatiando vídeo em partes de 30s...';
+        statusText.innerText = 'A fatiar o vídeo em partes de 30s...';
+        logText.innerText = 'A processar o vídeo...';
 
         await ffmpeg.exec([
           '-i', inputName,
@@ -111,7 +123,7 @@
           'parte_%03d.mp4'
         ]);
 
-        statusText.innerText = 'Gerando arquivos para download...';
+        statusText.innerText = 'A gerar pré-visualizações...';
 
         const dirFiles = await ffmpeg.readDir('/');
         const partFiles = dirFiles
@@ -155,7 +167,7 @@
             if (navigator.canShare && navigator.canShare({ files: [shareFile] })) {
               await navigator.share({ files: [shareFile] });
             } else {
-              alert('Compartilhamento direto não suportado no seu navegador. Use o botão Baixar.');
+              alert('Compartilhamento direto não suportado. Use o botão Baixar.');
             }
           };
 
@@ -172,6 +184,7 @@
       } catch (err) {
         console.error(err);
         statusText.innerText = 'Erro ao processar o vídeo.';
+        logText.innerText = 'Tente novamente com um vídeo menor ou verifique a ligação à internet.';
       }
     });
   </script>
