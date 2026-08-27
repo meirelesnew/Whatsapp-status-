@@ -4,24 +4,25 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Divisor de Vídeo para WhatsApp (30s)</title>
-  <!-- Tailwind CSS para o visual -->
+  
+  <!-- 1. Habilita isolamento Cross-Origin no GitHub Pages (Resolve o erro do FFmpeg) -->
+  <script src="https://cdn.jsdelivr.net/npm/coi-serviceworker/coi-serviceworker.min.js"></script>
+  
+  <!-- Estilização com Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FFmpeg.wasm para processar vídeos no navegador -->
+  
+  <!-- FFmpeg.wasm -->
   <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col items-center p-4">
 
   <div class="max-w-2xl w-full bg-white rounded-2xl shadow-lg p-6 my-8">
     <div class="text-center mb-6">
-      <h1 class="text-2xl font-bold text-emerald-600 flex items-center justify-center gap-2">
-        Divisor de Vídeo para WhatsApp
-      </h1>
-      <p class="text-gray-500 text-sm mt-1">
-        Divida seu vídeo em partes de 30 segundos ideais para o Status do WhatsApp.
-      </p>
+      <h1 class="text-2xl font-bold text-emerald-600">Divisor de Vídeo para WhatsApp</h1>
+      <p class="text-gray-500 text-sm mt-1">Divida seu vídeo em partes de 30 segundos para o Status.</p>
     </div>
 
-    <!-- Seletor de Arquivo -->
+    <!-- Upload -->
     <div class="border-2 border-dashed border-emerald-400 rounded-xl p-8 text-center bg-emerald-50 hover:bg-emerald-100 transition cursor-pointer mb-6">
       <input type="file" id="videoInput" accept="video/*" class="hidden" />
       <label for="videoInput" class="cursor-pointer flex flex-col items-center">
@@ -48,10 +49,12 @@
     </div>
   </div>
 
-  <!-- CÓDIGO JAVASCRIPT AQUI -->
   <script>
     const { createFFmpeg, fetchFile } = FFmpeg;
-    const ffmpeg = createFFmpeg({ log: true });
+    const ffmpeg = createFFmpeg({
+      log: true,
+      corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+    });
 
     const videoInput = document.getElementById('videoInput');
     const statusContainer = document.getElementById('statusContainer');
@@ -68,7 +71,7 @@
       partsList.innerHTML = '';
       resultsContainer.classList.add('hidden');
       statusContainer.classList.remove('hidden');
-      statusText.innerText = 'Carregando motor de vídeo (FFmpeg)...';
+      statusText.innerText = 'Carregando motor de vídeo...';
       progressBar.style.width = '0%';
       statusPercent.innerText = '0%';
 
@@ -83,7 +86,7 @@
           statusPercent.innerText = pct + '%';
         });
 
-        statusText.innerText = 'Carregando o vídeo na memória...';
+        statusText.innerText = 'Carregando arquivo...';
         const ext = file.name.split('.').pop() || 'mp4';
         const inputName = `input.${ext}`;
 
@@ -101,7 +104,7 @@
           'parte_%03d.mp4'
         );
 
-        statusText.innerText = 'Gerando pré-visualizações...';
+        statusText.innerText = 'Finalizando...';
 
         const files = ffmpeg.FS('readdir', '/');
         const partFiles = files.filter(f => f.startsWith('parte_') && f.endsWith('.mp4')).sort();
@@ -117,11 +120,7 @@
           card.className = 'flex flex-col sm:flex-row items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-200 gap-4';
 
           const infoDiv = document.createElement('div');
-          infoDiv.className = 'w-full sm:w-auto text-center sm:text-left';
-          infoDiv.innerHTML = `
-            <div class="font-semibold text-gray-800">Parte ${index + 1}</div>
-            <div class="text-xs text-gray-500">Duração: até 30s</div>
-          `;
+          infoDiv.innerHTML = `<div class="font-semibold text-gray-800">Parte ${index + 1}</div>`;
 
           const videoPreview = document.createElement('video');
           videoPreview.src = videoUrl;
@@ -129,41 +128,31 @@
           videoPreview.className = 'w-full sm:w-44 h-28 object-cover rounded-lg bg-black';
 
           const actionsDiv = document.createElement('div');
-          actionsDiv.className = 'flex gap-2 w-full sm:w-auto justify-center sm:justify-end';
+          actionsDiv.className = 'flex gap-2';
 
           const downloadBtn = document.createElement('a');
           downloadBtn.href = videoUrl;
-          downloadBtn.download = `whatsapp_status_parte_${index + 1}.mp4`;
-          downloadBtn.className = 'px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg transition';
-          downloadBtn.innerHTML = '⬇️ Baixar';
+          downloadBtn.download = `status_parte_${index + 1}.mp4`;
+          downloadBtn.className = 'px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg font-medium';
+          downloadBtn.innerText = 'Baixar';
 
           const shareBtn = document.createElement('button');
-          shareBtn.className = 'px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition';
-          shareBtn.innerHTML = '📲 Compartilhar';
+          shareBtn.className = 'px-3 py-2 bg-emerald-600 text-white text-sm rounded-lg font-medium';
+          shareBtn.innerText = 'Compartilhar';
           shareBtn.onclick = async () => {
             const shareFile = new File([blob], `status_parte_${index + 1}.mp4`, { type: 'video/mp4' });
             if (navigator.canShare && navigator.canShare({ files: [shareFile] })) {
-              try {
-                await navigator.share({
-                  files: [shareFile],
-                  title: `Status Parte ${index + 1}`,
-                  text: `Parte ${index + 1}`
-                });
-              } catch (err) {
-                console.log('Compartilhamento cancelado', err);
-              }
+              await navigator.share({ files: [shareFile] });
             } else {
-              alert('Compartilhamento não suportado neste navegador. Use o botão Baixar.');
+              alert('Compartilhamento não suportado. Use o botão Baixar.');
             }
           };
 
           actionsDiv.appendChild(downloadBtn);
           actionsDiv.appendChild(shareBtn);
-
           card.appendChild(infoDiv);
           card.appendChild(videoPreview);
           card.appendChild(actionsDiv);
-
           partsList.appendChild(card);
         });
 
@@ -171,7 +160,7 @@
 
       } catch (err) {
         console.error(err);
-        statusText.innerText = 'Ocorreu um erro ao cortar o vídeo.';
+        statusText.innerText = 'Erro ao processar. Tente atualizar a página.';
       }
     });
   </script>
