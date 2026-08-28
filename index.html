@@ -21,12 +21,18 @@
 <body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col items-center p-4">
 
   <div class="max-w-2xl w-full bg-white rounded-2xl shadow-lg p-6 my-8">
+    
+    <!-- Cabeçalho com Status do Motor -->
     <div class="text-center mb-6">
+      <div class="inline-flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full text-xs text-gray-600 mb-2">
+        <span id="engineDot" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+        <span id="engineStatus">Inicializando motor de vídeo...</span>
+      </div>
       <h1 class="text-2xl font-bold text-emerald-600">Divisor de Vídeo para WhatsApp</h1>
       <p class="text-gray-500 text-sm mt-1">Divida seu vídeo em partes ideais para o Status ou Stories.</p>
     </div>
 
-    <!-- Dropzone (Upload + Drag and Drop) -->
+    <!-- Dropzone -->
     <div id="dropZone" class="border-2 border-dashed border-emerald-400 rounded-xl p-8 text-center bg-emerald-50 hover:bg-emerald-100 transition cursor-pointer mb-6">
       <input type="file" id="videoInput" accept="video/*" class="hidden" />
       <label for="videoInput" class="cursor-pointer flex flex-col items-center">
@@ -35,7 +41,12 @@
       </label>
     </div>
 
-    <!-- Pré-visualização e Seleção do Tempo -->
+    <!-- Alerta de Tamanho de Arquivo -->
+    <div id="sizeWarning" class="hidden bg-amber-50 border border-amber-200 text-amber-800 p-3 rounded-xl text-xs mb-6 text-center font-medium">
+      ⚠️ Vídeo grande detectado! O processamento em celulares antigos pode levar mais tempo ou falhar por limitação de memória.
+    </div>
+
+    <!-- Pré-visualização e Seleção de Tempo -->
     <div id="previewCard" class="hidden bg-gray-50 rounded-xl p-4 border border-gray-200 mb-6 space-y-4">
       <div class="flex flex-col sm:flex-row items-center gap-4">
         <video id="originalVideoPreview" class="w-full sm:w-48 h-32 object-cover rounded-lg bg-black" controls></video>
@@ -57,8 +68,8 @@
       </div>
 
       <!-- Botão Ação -->
-      <button id="processBtn" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md">
-        Fatiar Vídeo
+      <button id="processBtn" disabled class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold rounded-xl transition shadow-md">
+        Aguardando motor...
       </button>
     </div>
 
