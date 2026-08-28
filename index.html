@@ -14,9 +14,13 @@
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#10b981" />
 
+  <!-- Tailwind CSS & FFmpeg -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
+
+  <!-- JSZip para compactação de arquivos -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen flex flex-col items-center p-4">
 
@@ -87,7 +91,12 @@
 
     <!-- Resultados -->
     <div id="resultsContainer" class="hidden">
-      <h2 class="text-lg font-bold text-gray-700 mb-4 border-b pb-2">Partes Geradas:</h2>
+      <div class="flex items-center justify-between border-b pb-2 mb-4">
+        <h2 class="text-lg font-bold text-gray-700">Partes Geradas:</h2>
+        <button id="downloadZipBtn" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow-sm">
+          📦 Baixar Tudo (.ZIP)
+        </button>
+      </div>
       <div id="partsList" class="space-y-4"></div>
     </div>
   </div>
