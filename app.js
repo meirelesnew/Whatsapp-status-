@@ -2,8 +2,20 @@ const { FFmpeg } = FFmpegWASM;
 const { fetchFile, toBlobURL } = FFmpegUtil;
 
 let ffmpeg = null;
+let currentFile = null;
+let segmentTime = 30; // Padrão: 30 segundos
 
+// Elementos DOM
+const dropZone = document.getElementById('dropZone');
 const videoInput = document.getElementById('videoInput');
+const previewCard = document.getElementById('previewCard');
+const originalVideoPreview = document.getElementById('originalVideoPreview');
+const videoName = document.getElementById('videoName');
+const videoStats = document.getElementById('videoStats');
+const estimatedParts = document.getElementById('estimatedParts');
+const processBtn = document.getElementById('processBtn');
+const timeBtns = document.querySelectorAll('.time-btn');
+
 const statusContainer = document.getElementById('statusContainer');
 const statusText = document.getElementById('statusText');
 const statusPercent = document.getElementById('statusPercent');
@@ -12,9 +24,79 @@ const logText = document.getElementById('logText');
 const resultsContainer = document.getElementById('resultsContainer');
 const partsList = document.getElementById('partsList');
 
-videoInput.addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+// Eventos Drag & Drop
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.classList.add('bg-emerald-100');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('bg-emerald-100');
+});
+
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('bg-emerald-100');
+  if (e.dataTransfer.files.length) {
+    handleFileSelected(e.dataTransfer.files[0]);
+  }
+});
+
+videoInput.addEventListener('change', (e) => {
+  if (e.target.files.length) {
+    handleFileSelected(e.target.files[0]);
+  }
+});
+
+// Seletor de tempo (15s, 30s, 60s)
+timeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    timeBtns.forEach(b => {
+      b.className = 'time-btn py-2 border rounded-lg font-medium text-sm border-gray-300 bg-white text-gray-700 hover:bg-gray-100';
+    });
+    btn.className = 'time-btn py-2 border rounded-lg font-medium text-sm border-emerald-500 bg-emerald-50 text-emerald-700 font-bold';
+    segmentTime = parseInt(btn.dataset.time);
+    updateEstimates();
+  });
+});
+
+function handleFileSelected(file) {
+  if (!file.type.startsWith('video/')) {
+    alert('Por favor, selecione um arquivo de vídeo válido.');
+    return;
+  }
+
+  currentFile = file;
+  videoName.innerText = file.name;
+  
+  const videoUrl = URL.createObjectURL(file);
+  originalVideoPreview.src = videoUrl;
+
+  originalVideoPreview.onloadedmetadata = () => {
+    updateEstimates();
+    previewCard.classList.remove('hidden');
+    resultsContainer.classList.add('hidden');
+  };
+}
+
+function updateEstimates() {
+  if (!currentFile || !originalVideoPreview.duration) return;
+
+  const duration = originalVideoPreview.duration;
+  const parts = Math.ceil(duration / segmentTime);
+  const sizeMB = (currentFile.size / (1024 * 1024)).toFixed(1);
+
+  const mins = Math.floor(duration / 60);
+  const secs = Math.floor(duration % 60);
+  const durationFormatted = `${mins > 0 ? mins + 'm ' : ''}${secs}s`;
+
+  videoStats.innerText = `Tamanho: ${sizeMB} MB | Duração: ${durationFormatted}`;
+  estimatedParts.innerText = `Serão geradas aproximadamente ${parts} parte(s) de ${segmentTime}s.`;
+}
+
+// Iniciar Corte
+processBtn.addEventListener('click', async () => {
+  if (!currentFile) return;
 
   partsList.innerHTML = '';
   resultsContainer.classList.add('hidden');
@@ -53,19 +135,19 @@ videoInput.addEventListener('change', async (e) => {
     progressBar.style.width = '35%';
     statusPercent.innerText = '35%';
 
-    const ext = file.name.split('.').pop().toLowerCase() || 'mp4';
+    const ext = currentFile.name.split('.').pop().toLowerCase() || 'mp4';
     const inputName = `input.${ext}`;
 
-    await ffmpeg.writeFile(inputName, await fetchFile(file));
+    await ffmpeg.writeFile(inputName, await fetchFile(currentFile));
 
-    statusText.innerText = 'Fatiando vídeo em partes de 30s...';
+    statusText.innerText = `Fatiando vídeo em partes de ${segmentTime}s...`;
     logText.innerText = 'Processando...';
 
     await ffmpeg.exec([
       '-i', inputName,
       '-c', 'copy',
       '-map', '0',
-      '-segment_time', '30',
+      '-segment_time', segmentTime.toString(),
       '-f', 'segment',
       '-reset_timestamps', '1',
       'parte_%03d.mp4'
@@ -91,7 +173,7 @@ videoInput.addEventListener('change', async (e) => {
       card.className = 'flex flex-col sm:flex-row items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-200 gap-4';
 
       const infoDiv = document.createElement('div');
-      infoDiv.innerHTML = `<div class="font-semibold text-gray-800">Parte ${i + 1}</div>`;
+      infoDiv.innerHTML = `<div class="font-semibold text-gray-800">Parte ${i + 1} (${segmentTime}s)</div>`;
 
       const videoPreview = document.createElement('video');
       videoPreview.src = videoUrl;
