@@ -1,3 +1,12 @@
+// Registra o Service Worker do PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('PWA Service Worker registrado com sucesso!'))
+      .catch((err) => console.log('Falha ao registrar Service Worker:', err));
+  });
+}
+
 const { FFmpeg } = FFmpegWASM;
 const { fetchFile, toBlobURL } = FFmpegUtil;
 
@@ -7,7 +16,7 @@ let currentFile = null;
 let segmentTime = 30;
 let generatedBlobs = [];
 
-// Elementos DOM
+// Elementos do DOM
 const engineDot = document.getElementById('engineDot');
 const engineStatus = document.getElementById('engineStatus');
 const dropZone = document.getElementById('dropZone');
@@ -30,6 +39,21 @@ const resultsContainer = document.getElementById('resultsContainer');
 const partsList = document.getElementById('partsList');
 const downloadZipBtn = document.getElementById('downloadZipBtn');
 
+// Limpeza da memória virtual do FFmpeg
+async function clearVirtualFS() {
+  try {
+    const dirFiles = await ffmpeg.readDir('/');
+    for (const file of dirFiles) {
+      if (file.name.startsWith('input.') || file.name.startsWith('parte_')) {
+        await ffmpeg.deleteFile(file.name);
+      }
+    }
+  } catch (err) {
+    console.log('Nenhum arquivo anterior para limpar');
+  }
+}
+
+// Pré-carregamento do FFmpeg
 async function preloadFFmpeg() {
   try {
     ffmpeg = new FFmpeg();
@@ -53,7 +77,7 @@ async function preloadFFmpeg() {
     isEngineReady = true;
     engineDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
     engineStatus.innerText = 'Motor de vídeo pronto';
-    
+
     if (currentFile) {
       processBtn.disabled = false;
       processBtn.innerText = 'Fatiar Vídeo';
@@ -67,6 +91,7 @@ async function preloadFFmpeg() {
 
 window.addEventListener('DOMContentLoaded', preloadFFmpeg);
 
+// Suporte a Drag & Drop
 dropZone.addEventListener('dragover', (e) => {
   e.preventDefault();
   dropZone.classList.add('bg-emerald-100');
@@ -86,6 +111,7 @@ videoInput.addEventListener('change', (e) => {
   if (e.target.files.length) handleFileSelected(e.target.files[0]);
 });
 
+// Seletor de tempo
 timeBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     timeBtns.forEach(b => {
@@ -105,7 +131,7 @@ function handleFileSelected(file) {
 
   currentFile = file;
   videoName.innerText = file.name;
-  
+
   if (file.size > 100 * 1024 * 1024) {
     sizeWarning.classList.remove('hidden');
   } else {
@@ -145,6 +171,7 @@ function updateEstimates() {
   estimatedParts.innerText = `Serão geradas aproximadamente ${parts} parte(s) de ${segmentTime}s.`;
 }
 
+// Processamento do vídeo
 processBtn.addEventListener('click', async () => {
   if (!currentFile || !isEngineReady) return;
 
@@ -157,6 +184,9 @@ processBtn.addEventListener('click', async () => {
   statusText.innerText = 'Lendo arquivo de vídeo...';
 
   try {
+    // Limpeza previa dos arquivos na memoria virtual
+    await clearVirtualFS();
+
     const ext = currentFile.name.split('.').pop().toLowerCase() || 'mp4';
     const inputName = `input.${ext}`;
 
@@ -190,7 +220,6 @@ processBtn.addEventListener('click', async () => {
       const blob = new Blob([data.buffer], { type: 'video/mp4' });
       const videoUrl = URL.createObjectURL(blob);
 
-      // Armazena no array global para criação do ZIP
       generatedBlobs.push({
         name: `status_parte_${String(i + 1).padStart(2, '0')}.mp4`,
         blob: blob
@@ -245,7 +274,7 @@ processBtn.addEventListener('click', async () => {
   }
 });
 
-// Download em Lote (.ZIP)
+// Download em ZIP
 downloadZipBtn.addEventListener('click', async () => {
   if (!generatedBlobs.length) return;
 
@@ -268,13 +297,3 @@ downloadZipBtn.addEventListener('click', async () => {
   downloadZipBtn.innerText = '📦 Baixar Tudo (.ZIP)';
   downloadZipBtn.disabled = false;
 });
-
-
-// Registra o Service Worker para suporte PWA/Offline
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(() => console.log('PWA Service Worker registrado com sucesso!'))
-      .catch((err) => console.log('Falha ao registrar Service Worker:', err));
-  });
-}
