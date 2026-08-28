@@ -6,17 +6,14 @@
   <title>Divisor de Vídeo para WhatsApp & Stories</title>
   <meta name="description" content="Corte seus vídeos em partes de 15, 30 ou 60 segundos direto no seu navegador com total privacidade." />
 
-  <!-- Meta Tags OpenGraph para pré-visualização no WhatsApp -->
   <meta property="og:title" content="Divisor de Vídeo para WhatsApp & Stories" />
-  <meta property="og:description" content="Fatie seus vídeos em 30s sem enviar para nenhum servidor. Grátis e rápido!" />
+  <meta property="og:description" content="Fatie seus vídeos em 15s, 30s ou 60s sem enviar para nenhum servidor." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://meirelesnew.github.io/Whatsapp-status-/" />
 
-  <!-- Configuração PWA -->
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#10b981" />
 
-  <!-- Tailwind CSS & FFmpeg v0.12 CDNs -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/util.js"></script>
@@ -29,13 +26,40 @@
       <p class="text-gray-500 text-sm mt-1">Divida seu vídeo em partes ideais para o Status ou Stories.</p>
     </div>
 
-    <!-- Upload -->
-    <div class="border-2 border-dashed border-emerald-400 rounded-xl p-8 text-center bg-emerald-50 hover:bg-emerald-100 transition cursor-pointer mb-6">
+    <!-- Dropzone (Upload + Drag and Drop) -->
+    <div id="dropZone" class="border-2 border-dashed border-emerald-400 rounded-xl p-8 text-center bg-emerald-50 hover:bg-emerald-100 transition cursor-pointer mb-6">
       <input type="file" id="videoInput" accept="video/*" class="hidden" />
       <label for="videoInput" class="cursor-pointer flex flex-col items-center">
-        <span class="font-semibold text-emerald-800">Clique para selecionar um vídeo</span>
+        <span class="font-semibold text-emerald-800">Clique ou arraste um vídeo aqui</span>
         <span class="text-xs text-gray-500 mt-1">Suporta MP4, MOV, WEBM e AVI</span>
       </label>
+    </div>
+
+    <!-- Pré-visualização e Seleção do Tempo -->
+    <div id="previewCard" class="hidden bg-gray-50 rounded-xl p-4 border border-gray-200 mb-6 space-y-4">
+      <div class="flex flex-col sm:flex-row items-center gap-4">
+        <video id="originalVideoPreview" class="w-full sm:w-48 h-32 object-cover rounded-lg bg-black" controls></video>
+        <div class="flex-1 space-y-1 text-center sm:text-left">
+          <h3 id="videoName" class="font-semibold text-gray-800 truncate">--</h3>
+          <p id="videoStats" class="text-xs text-gray-500">Tamanho: -- | Duração: --</p>
+          <p id="estimatedParts" class="text-xs font-medium text-emerald-600">Partes estimadas: --</p>
+        </div>
+      </div>
+
+      <!-- Seletor de Duração -->
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-2">Selecione o tamanho de cada parte:</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" data-time="15" class="time-btn py-2 border rounded-lg font-medium text-sm border-gray-300 bg-white text-gray-700 hover:bg-gray-100">15s (Stories)</button>
+          <button type="button" data-time="30" class="time-btn py-2 border rounded-lg font-medium text-sm border-emerald-500 bg-emerald-50 text-emerald-700 font-bold">30s (WhatsApp)</button>
+          <button type="button" data-time="60" class="time-btn py-2 border rounded-lg font-medium text-sm border-gray-300 bg-white text-gray-700 hover:bg-gray-100">60s (Longo)</button>
+        </div>
+      </div>
+
+      <!-- Botão Ação -->
+      <button id="processBtn" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-md">
+        Fatiar Vídeo
+      </button>
     </div>
 
     <!-- Progresso -->
