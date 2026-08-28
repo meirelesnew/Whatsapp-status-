@@ -2,12 +2,16 @@ const { FFmpeg } = FFmpegWASM;
 const { fetchFile, toBlobURL } = FFmpegUtil;
 
 let ffmpeg = null;
+let isEngineReady = false;
 let currentFile = null;
-let segmentTime = 30; // Padrão: 30 segundos
+let segmentTime = 30;
 
 // Elementos DOM
+const engineDot = document.getElementById('engineDot');
+const engineStatus = document.getElementById('engineStatus');
 const dropZone = document.getElementById('dropZone');
 const videoInput = document.getElementById('videoInput');
+const sizeWarning = document.getElementById('sizeWarning');
 const previewCard = document.getElementById('previewCard');
 const originalVideoPreview = document.getElementById('originalVideoPreview');
 const videoName = document.getElementById('videoName');
@@ -24,7 +28,46 @@ const logText = document.getElementById('logText');
 const resultsContainer = document.getElementById('resultsContainer');
 const partsList = document.getElementById('partsList');
 
-// Eventos Drag & Drop
+// Pré-carregamento automático do FFmpeg
+async function preloadFFmpeg() {
+  try {
+    ffmpeg = new FFmpeg();
+
+    ffmpeg.on('progress', ({ progress }) => {
+      const pct = Math.min(100, Math.max(0, Math.round(progress * 100)));
+      progressBar.style.width = pct + '%';
+      statusPercent.innerText = pct + '%';
+    });
+
+    ffmpeg.on('log', ({ message }) => {
+      if (message.length < 50) logText.innerText = message;
+    });
+
+    const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+    await ffmpeg.load({
+      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
+    });
+
+    isEngineReady = true;
+    engineDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+    engineStatus.innerText = 'Motor de vídeo pronto';
+    
+    if (currentFile) {
+      processBtn.disabled = false;
+      processBtn.innerText = 'Fatiar Vídeo';
+    }
+  } catch (err) {
+    console.error(err);
+    engineDot.className = 'w-2 h-2 rounded-full bg-red-500';
+    engineStatus.innerText = 'Erro ao carregar motor. Recarregue a página.';
+  }
+}
+
+// Inicia o carregamento assim que abre a página
+window.addEventListener('DOMContentLoaded', preloadFFmpeg);
+
+// Drag & Drop
 dropZone.addEventListener('dragover', (e) => {
   e.preventDefault();
   dropZone.classList.add('bg-emerald-100');
@@ -37,18 +80,14 @@ dropZone.addEventListener('dragleave', () => {
 dropZone.addEventListener('drop', (e) => {
   e.preventDefault();
   dropZone.classList.remove('bg-emerald-100');
-  if (e.dataTransfer.files.length) {
-    handleFileSelected(e.dataTransfer.files[0]);
-  }
+  if (e.dataTransfer.files.length) handleFileSelected(e.dataTransfer.files[0]);
 });
 
 videoInput.addEventListener('change', (e) => {
-  if (e.target.files.length) {
-    handleFileSelected(e.target.files[0]);
-  }
+  if (e.target.files.length) handleFileSelected(e.target.files[0]);
 });
 
-// Seletor de tempo (15s, 30s, 60s)
+// Seletor de tempo
 timeBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     timeBtns.forEach(b => {
@@ -69,6 +108,13 @@ function handleFileSelected(file) {
   currentFile = file;
   videoName.innerText = file.name;
   
+  // Alerta de arquivo gigante (> 100MB)
+  if (file.size > 100 * 1024 * 1024) {
+    sizeWarning.classList.remove('hidden');
+  } else {
+    sizeWarning.classList.add('hidden');
+  }
+
   const videoUrl = URL.createObjectURL(file);
   originalVideoPreview.src = videoUrl;
 
@@ -76,6 +122,14 @@ function handleFileSelected(file) {
     updateEstimates();
     previewCard.classList.remove('hidden');
     resultsContainer.classList.add('hidden');
+
+    if (isEngineReady) {
+      processBtn.disabled = false;
+      processBtn.innerText = 'Fatiar Vídeo';
+    } else {
+      processBtn.disabled = true;
+      processBtn.innerText = 'Carregando motor...';
+    }
   };
 }
 
@@ -94,54 +148,24 @@ function updateEstimates() {
   estimatedParts.innerText = `Serão geradas aproximadamente ${parts} parte(s) de ${segmentTime}s.`;
 }
 
-// Iniciar Corte
+// Processar corte
 processBtn.addEventListener('click', async () => {
-  if (!currentFile) return;
+  if (!currentFile || !isEngineReady) return;
 
   partsList.innerHTML = '';
   resultsContainer.classList.add('hidden');
   statusContainer.classList.remove('hidden');
-  progressBar.style.width = '5%';
-  statusPercent.innerText = '5%';
-  statusText.innerText = 'Iniciando sistema...';
-  logText.innerText = '';
+  progressBar.style.width = '10%';
+  statusPercent.innerText = '10%';
+  statusText.innerText = 'Lendo arquivo de vídeo...';
 
   try {
-    if (!ffmpeg) {
-      ffmpeg = new FFmpeg();
-
-      ffmpeg.on('progress', ({ progress }) => {
-        const pct = Math.min(100, Math.max(0, Math.round(progress * 100)));
-        progressBar.style.width = pct + '%';
-        statusPercent.innerText = pct + '%';
-      });
-
-      ffmpeg.on('log', ({ message }) => {
-        if (message.length < 50) logText.innerText = message;
-      });
-
-      statusText.innerText = 'Carregando motor de vídeo (~25MB)...';
-      logText.innerText = 'Baixando arquivos da CDN...';
-      progressBar.style.width = '15%';
-
-      const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm')
-      });
-    }
-
-    statusText.innerText = 'Lendo arquivo de vídeo...';
-    progressBar.style.width = '35%';
-    statusPercent.innerText = '35%';
-
     const ext = currentFile.name.split('.').pop().toLowerCase() || 'mp4';
     const inputName = `input.${ext}`;
 
     await ffmpeg.writeFile(inputName, await fetchFile(currentFile));
 
     statusText.innerText = `Fatiando vídeo em partes de ${segmentTime}s...`;
-    logText.innerText = 'Processando...';
 
     await ffmpeg.exec([
       '-i', inputName,
@@ -214,6 +238,6 @@ processBtn.addEventListener('click', async () => {
   } catch (err) {
     console.error(err);
     statusText.innerText = 'Erro ao processar o vídeo.';
-    logText.innerText = 'Verifique a conexão ou tente um arquivo menor.';
+    logText.innerText = 'Tente um arquivo menor ou recarregue a página.';
   }
 });
