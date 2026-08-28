@@ -1,0 +1,9 @@
+{
+  "name": "Divisor de Vídeo para WhatsApp",
+  "short_name": "CortaStatus",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#10b981",
+  "description": "Fatie vídeos para o Status do WhatsApp e Stories direto no celular."
+}
