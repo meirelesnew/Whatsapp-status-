@@ -268,3 +268,13 @@ downloadZipBtn.addEventListener('click', async () => {
   downloadZipBtn.innerText = '📦 Baixar Tudo (.ZIP)';
   downloadZipBtn.disabled = false;
 });
+
+
+// Registra o Service Worker para suporte PWA/Offline
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(() => console.log('PWA Service Worker registrado com sucesso!'))
+      .catch((err) => console.log('Falha ao registrar Service Worker:', err));
+  });
+}
