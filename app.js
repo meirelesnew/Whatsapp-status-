@@ -5,6 +5,7 @@ let ffmpeg = null;
 let isEngineReady = false;
 let currentFile = null;
 let segmentTime = 30;
+let generatedBlobs = [];
 
 // Elementos DOM
 const engineDot = document.getElementById('engineDot');
@@ -27,8 +28,8 @@ const progressBar = document.getElementById('progressBar');
 const logText = document.getElementById('logText');
 const resultsContainer = document.getElementById('resultsContainer');
 const partsList = document.getElementById('partsList');
+const downloadZipBtn = document.getElementById('downloadZipBtn');
 
-// Pré-carregamento automático do FFmpeg
 async function preloadFFmpeg() {
   try {
     ffmpeg = new FFmpeg();
@@ -64,10 +65,8 @@ async function preloadFFmpeg() {
   }
 }
 
-// Inicia o carregamento assim que abre a página
 window.addEventListener('DOMContentLoaded', preloadFFmpeg);
 
-// Drag & Drop
 dropZone.addEventListener('dragover', (e) => {
   e.preventDefault();
   dropZone.classList.add('bg-emerald-100');
@@ -87,7 +86,6 @@ videoInput.addEventListener('change', (e) => {
   if (e.target.files.length) handleFileSelected(e.target.files[0]);
 });
 
-// Seletor de tempo
 timeBtns.forEach(btn => {
   btn.addEventListener('click', () => {
     timeBtns.forEach(b => {
@@ -108,7 +106,6 @@ function handleFileSelected(file) {
   currentFile = file;
   videoName.innerText = file.name;
   
-  // Alerta de arquivo gigante (> 100MB)
   if (file.size > 100 * 1024 * 1024) {
     sizeWarning.classList.remove('hidden');
   } else {
@@ -148,11 +145,11 @@ function updateEstimates() {
   estimatedParts.innerText = `Serão geradas aproximadamente ${parts} parte(s) de ${segmentTime}s.`;
 }
 
-// Processar corte
 processBtn.addEventListener('click', async () => {
   if (!currentFile || !isEngineReady) return;
 
   partsList.innerHTML = '';
+  generatedBlobs = [];
   resultsContainer.classList.add('hidden');
   statusContainer.classList.remove('hidden');
   progressBar.style.width = '10%';
@@ -193,6 +190,12 @@ processBtn.addEventListener('click', async () => {
       const blob = new Blob([data.buffer], { type: 'video/mp4' });
       const videoUrl = URL.createObjectURL(blob);
 
+      // Armazena no array global para criação do ZIP
+      generatedBlobs.push({
+        name: `status_parte_${String(i + 1).padStart(2, '0')}.mp4`,
+        blob: blob
+      });
+
       const card = document.createElement('div');
       card.className = 'flex flex-col sm:flex-row items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-200 gap-4';
 
@@ -209,7 +212,7 @@ processBtn.addEventListener('click', async () => {
 
       const downloadBtn = document.createElement('a');
       downloadBtn.href = videoUrl;
-      downloadBtn.download = `status_parte_${i + 1}.mp4`;
+      downloadBtn.download = `status_parte_${String(i + 1).padStart(2, '0')}.mp4`;
       downloadBtn.className = 'px-3 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg font-medium';
       downloadBtn.innerText = 'Baixar';
 
@@ -240,4 +243,28 @@ processBtn.addEventListener('click', async () => {
     statusText.innerText = 'Erro ao processar o vídeo.';
     logText.innerText = 'Tente um arquivo menor ou recarregue a página.';
   }
+});
+
+// Download em Lote (.ZIP)
+downloadZipBtn.addEventListener('click', async () => {
+  if (!generatedBlobs.length) return;
+
+  const zip = new JSZip();
+  generatedBlobs.forEach(item => {
+    zip.file(item.name, item.blob);
+  });
+
+  downloadZipBtn.innerText = 'Compactando...';
+  downloadZipBtn.disabled = true;
+
+  const zipContent = await zip.generateAsync({ type: 'blob' });
+  const zipUrl = URL.createObjectURL(zipContent);
+
+  const a = document.createElement('a');
+  a.href = zipUrl;
+  a.download = 'whatsapp_status_partes.zip';
+  a.click();
+
+  downloadZipBtn.innerText = '📦 Baixar Tudo (.ZIP)';
+  downloadZipBtn.disabled = false;
 });
